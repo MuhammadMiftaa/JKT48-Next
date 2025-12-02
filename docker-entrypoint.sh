@@ -47,7 +47,7 @@ bun server.js &
 
 # Wait for Next.js to be ready
 echo "⏳ Waiting for Next.js server to be ready..."
-timeout=60
+timeout=600
 counter=0
 until wget --spider -q http://localhost:3000 2>/dev/null; do
     counter=$((counter + 1))
