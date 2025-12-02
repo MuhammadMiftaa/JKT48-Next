@@ -26,7 +26,7 @@ RUN bun run build
 FROM fholzer/nginx-brotli:v1.28.0 AS runner
 
 # Install Bun, gettext (untuk envsubst), dan wget (untuk health check)
-RUN apk add --no-cache curl unzip gettext wget && \
+RUN apk add --no-cache curl unzip gettext wget bash && \
     curl -fsSL https://bun.sh/install | bash && \
     mv /root/.bun/bin/bun /usr/local/bin/bun && \
     rm -rf /root/.bun && \
