@@ -67,7 +67,6 @@ WORKDIR /app
 
 # Copy built application
 COPY --from=builder --chown=nginx:nginx /app/public ./public
-COPY --from=builder --chown=nginx:nginx /app/.next/standalone ./
 COPY --from=builder --chown=nginx:nginx /app/.next/static ./.next/static
 
 # Copy PWA files
