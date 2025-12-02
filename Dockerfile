@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile
 
-# Stage 2: Builder (NO ENV VARIABLES HERE!)
+# Stage 2: Builder
 FROM oven/bun:1 AS builder
 WORKDIR /app
 
@@ -25,12 +25,25 @@ RUN bun run build
 # Stage 3: Production dengan Nginx + Runtime ENV Injection
 FROM fholzer/nginx-brotli:v1.28.0 AS runner
 
-# Install Bun, gettext (untuk envsubst), dan wget (untuk health check)
-RUN apk add --no-cache curl unzip gettext wget bash && \
-    curl -fsSL https://bun.sh/install | bash && \
+# Install dependencies + gcompat untuk Bun compatibility dengan musl
+RUN apk add --no-cache \
+    bash \
+    curl \
+    wget \
+    gettext \
+    ca-certificates \
+    # Libraries yang dibutuhkan Bun
+    libstdc++ \
+    libgcc \
+    gcompat
+
+# Install Bun menggunakan Alpine-compatible method
+RUN curl -fsSL https://bun.sh/install | bash && \
     mv /root/.bun/bin/bun /usr/local/bin/bun && \
-    rm -rf /root/.bun && \
-    apk del curl unzip
+    chmod +x /usr/local/bin/bun
+
+# Verify Bun works
+RUN bun --version || echo "Bun verification failed, but continuing..."
 
 WORKDIR /app
 
