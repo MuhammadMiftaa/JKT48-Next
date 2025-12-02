@@ -1,37 +1,15 @@
 # Multi-stage build untuk Next.js dengan Bun dan Runtime ENV Injection
 
 # Stage 1: Dependencies
-FROM oven/bun:1-alpine AS deps
+FROM oven/bun:1 AS deps
 WORKDIR /app
-
-# Install build dependencies untuk canvas
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
 
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile
 
-# Stage 2: Builder
-FROM oven/bun:1-alpine AS builder
+# Stage 2: Builder (NO ENV VARIABLES HERE!)
+FROM oven/bun:1 AS builder
 WORKDIR /app
-
-# Install runtime libraries yang dibutuhkan untuk build
-RUN apk add --no-cache \
-    cairo \
-    jpeg \
-    pango \
-    giflib \
-    pixman
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -40,24 +18,15 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build Next.js
+# Build WITHOUT environment variables
+# Next.js akan menggunakan placeholder untuk runtime variables
 RUN bun run build
 
 # Stage 3: Production dengan Nginx + Runtime ENV Injection
 FROM fholzer/nginx-brotli:v1.28.0 AS runner
 
-# Install Bun, gettext, wget, dan runtime libraries untuk canvas (jika diperlukan)
-RUN apk add --no-cache \
-    curl \
-    unzip \
-    gettext \
-    wget \
-    bash \
-    cairo \
-    pango \
-    libjpeg-turbo \
-    giflib \
-    pixman && \
+# Install Bun, gettext (untuk envsubst), dan wget (untuk health check)
+RUN apk add --no-cache curl unzip gettext wget bash && \
     curl -fsSL https://bun.sh/install | bash && \
     mv /root/.bun/bin/bun /usr/local/bin/bun && \
     rm -rf /root/.bun && \
