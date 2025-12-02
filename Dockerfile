@@ -21,8 +21,6 @@ RUN apk add --no-cache \
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile
 
-RUN apk del .build-deps
-
 # Stage 2: Builder
 FROM oven/bun:1-alpine AS builder
 WORKDIR /app
