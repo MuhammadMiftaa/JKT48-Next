@@ -23,7 +23,7 @@ ENV NODE_ENV=production
 RUN bun run build
 
 # Stage 3: Production dengan Nginx + Runtime ENV Injection
-FROM fholzer/nginx-brotli:1.25.2 AS runner
+FROM fholzer/nginx-brotli:v1.28.0 AS runner
 
 # Install Bun, gettext (untuk envsubst), dan wget (untuk health check)
 RUN apk add --no-cache curl unzip gettext wget && \
