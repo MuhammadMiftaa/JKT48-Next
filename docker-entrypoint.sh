@@ -154,7 +154,7 @@ SLEEP_INTERVAL=2
 elapsed=0
 last_log_line=0
 
-while ! wget --spider -q http://localhost:3000 2>/dev/null; do
+while ! netstat -tln | grep -q ":3000 "; do
     # Check if process is still alive
     if ! kill -0 $NEXTJS_PID 2>/dev/null; then
         log_error "Next.js process died during startup!"
