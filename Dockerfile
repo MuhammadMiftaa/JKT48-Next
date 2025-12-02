@@ -5,7 +5,7 @@ FROM oven/bun:1-alpine AS deps
 WORKDIR /app
 
 COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile --production=false
+RUN bun install --frozen-lockfile
 
 # Stage 2: Builder (NO ENV VARIABLES HERE!)
 FROM oven/bun:1-alpine AS builder
