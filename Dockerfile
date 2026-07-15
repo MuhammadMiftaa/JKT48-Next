@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json bun.lock* ./
-RUN bun install --no-save --frozen-lockfile
+RUN bun install --no-save
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -110,8 +110,8 @@ ENV NODE_ENV=production \
     NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN groupadd -g 1001 -r nodejs && \
+    useradd -u 1001 -r -g nodejs -s /bin/sh -m nextjs
 
 COPY --from=builder /app/public ./public
 

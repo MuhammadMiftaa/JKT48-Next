@@ -1,0 +1,12 @@
+.git
+.github
+.env
+.env.local
+node_modules/
+.next/
+out/
+build/
+dist/
+*.log
+Dockerfile
+Makefile

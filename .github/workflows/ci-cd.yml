@@ -1,0 +1,118 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    tags:
+      - 'v[0-9][0-9][0-9][0-9].[0-9]+'
+
+env:
+  REGISTRY: ghcr.io
+  PODMAN_SOCKET: unix:///run/user/1000/podman/podman.sock
+  REGISTRY_AUTH_FILE: /home/mifta/.config/containers/auth.json
+
+jobs:
+  # =============================================================
+  #  BUILD & PUSH IMAGE
+  # =============================================================
+  build:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Extract tag name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Lowercase repository name
+        run: echo "REPO_LOWERCASE=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Build and push Sanggar Tari Web App image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_ENVIRONMENT=${{ secrets.NEXT_PUBLIC_ENVIRONMENT }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+            FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+            FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+            FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+            FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_LOWERCASE }}/app:${{ env.TAG_NAME }}
+            ${{ env.REGISTRY }}/${{ env.REPO_LOWERCASE }}/app:latest
+
+  # =============================================================
+  #  GITHUB RELEASE
+  # =============================================================
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+  # =============================================================
+  #  DEPLOY — PRODUCTION
+  # =============================================================
+  deploy-production:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    permissions:
+      packages: read
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      - name: Extract tag name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Lowercase repository name
+        run: echo "REPO_LOWERCASE=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Deploy to Production Server
+        run: |
+          ssh -o StrictHostKeyChecking=no mifta@homeserver "
+            set -e
+            export DOCKER_HOST=${{ env.PODMAN_SOCKET }} &&
+            export REGISTRY_AUTH_FILE=${{ env.REGISTRY_AUTH_FILE }} &&
+            export APP_IMAGE_PROD_APP=${{ env.REGISTRY }}/${{ env.REPO_LOWERCASE }}/app &&
+            export APP_IMAGE_PROD_APP_TAG=${{ env.TAG_NAME }} &&
+
+            cd ~/web/production/sanggartari &&
+
+            podman login -u ${{ github.actor }} -p ${{ secrets.GHCR_TOKEN }} ${{ env.REGISTRY }} &&
+            podman pull \$APP_IMAGE_PROD_APP:\$APP_IMAGE_PROD_APP_TAG &&
+            docker compose -f docker-compose.prod.yml up -d &&
+
+            echo 'Deploy production selesai: sanggar-tari @ ${{ env.TAG_NAME }}'
+          "
